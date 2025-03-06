@@ -6,6 +6,7 @@ use App\Filament\Resources\BrandResource\Pages;
 use App\Filament\Resources\BrandResource\RelationManagers;
 use App\Models\Brand;
 use Filament\Forms\Set;
+use Filament\Forms\Get;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Section;
@@ -41,17 +42,27 @@ class BrandResource extends Resource
                                 ->required()
                                 ->maxLength(255)
                                 ->live(onBlur: true)
-                                ->afterStateUpdated(fn (string $operation, $state, Set $set) => $operation === 'create'? $set('slug',Str::slug($state)) : null),
+                                ->afterStateUpdated(function(string $operation, $state, Set $set, Get $get){
+                                    if ($get('update_slug') ?? false) {
+                                        $set('slug', Str::slug($state));
+                                    }
+                                    
+                                }),
                             TextInput::make('slug')
                                 ->required()
-                                ->disabled()
+                                ->disabled(fn (Get $get): bool => $get('update_slug') ?? false)
                                 ->maxLength(255)
                                 ->dehydrated()
-                                ->unique(Brand::class, 'slug', ignoreRecord: true)
+                                ->unique(Brand::class, 'slug', ignoreRecord: true),
+
+                            Toggle::make('update_slug')
+                                ->label('Automatically update slug')
+                                ->default(true)
+                                ->hidden(fn (string $operation): bool => $operation === 'create'),
                         ]),
                         FileUpload::make('image')
                             ->image()
-                            ->directory('categories'),
+                            ->directory('Brands'),
                         Toggle::make('is_active')
                         ->required()
                         ->default('true')    
