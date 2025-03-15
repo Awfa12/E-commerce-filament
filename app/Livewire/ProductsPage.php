@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -16,48 +17,66 @@ class ProductsPage extends Component
     use WithPagination;
 
     #[Url()]
-    public $selected_categories = [];
+    public array $selected_categories = [];
 
     #[Url()]
-    public $selected_brands = [];
+    public array $selected_brands = [];
 
     #[Url()]
-    public $featured;
+    public bool $featured = false;
 
     #[Url()]
-    public $on_sale;
+    public bool $on_sale = false;
 
     #[Url()]
-    public $price_range = 3000;
+    public int $price_range = 3000;
+
+    private function applyFilters($query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query
+        ->when(!empty($this->selected_categories), function ($query) {
+            $query->whereIn('category_id', $this->selected_categories);
+        })
+        ->when(!empty($this->selected_brands), function ($query) {
+            $query->whereIn('brand_id', $this->selected_brands);
+        })
+        ->when($this->featured, function ($query) {
+            $query->where('is_featured', 1);
+        })
+        ->when($this->on_sale, function ($query) {
+            $query->where('on_sale', 1);
+        })
+        ->when($this->price_range, function ($query) {
+            $query->whereBetween('price', [0, $this->price_range]);
+        });
+    }
+
+    private function prepareViewData(): array
+    {
+        $productQuery = $this->applyFilters(
+            Product::query()
+                ->where('is_active', 1)
+                ->with(['brand', 'category']) // Eager load relationships
+        );
+
+        $brands = Cache::remember('active_brands', 3600, function () {
+            return Brand::where('is_active', 1)->select(['id', 'name', 'slug'])->get();
+        });
+    
+        $categories = Cache::remember('active_categories', 3600, function () {
+            return Category::where('is_active', 1)->select(['id', 'name', 'slug'])->get();
+        });
+    
+        return [
+            'products' => $productQuery->simplePaginate(9),
+            'brands' => $brands,
+            'categories' => $categories,
+        ];
+    }
+
 
     public function render()
     {
-        $procuteQuery = Product::query()->where('is_active', 1);
-
-        if(!empty($this->selected_categories)){
-            $procuteQuery->whereIn('category_id', $this->selected_categories);
-        }
-
-        if(!empty($this->selected_brands)){
-            $procuteQuery->whereIn('brand_id', $this->selected_brands);
-        }
-
-        if($this->featured){
-            $procuteQuery->where('is_featured', 1);
-        }
-
-        if($this->on_sale){
-            $procuteQuery->where('on_sale', 1);
-        }
-
-        if($this->price_range){
-            $procuteQuery->whereBetween('price', [0, $this->price_range]);
-        }
-
-        return view('livewire.products-page',[
-            'products' => $procuteQuery->paginate(9),
-            'brands' => Brand::where('is_active',1)->get(['id','name','slug']),
-            'categories' => Category::where('is_active',1)->get(['id','name','slug']),
-        ]);
+        return view('livewire.products-page', $this->prepareViewData());
     }
 }
