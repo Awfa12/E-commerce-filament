@@ -31,6 +31,9 @@ class ProductsPage extends Component
     #[Url()]
     public int $price_range = 3000;
 
+    #[Url()]
+    public string $sort = 'latest';
+
     private function applyFilters($query): \Illuminate\Database\Eloquent\Builder
     {
         return $query
@@ -48,6 +51,10 @@ class ProductsPage extends Component
         })
         ->when($this->price_range, function ($query) {
             $query->whereBetween('price', [0, $this->price_range]);
+        })->when($this->sort == 'latest', function ($query) {
+            $query->latest();
+        })->when($this->sort == 'price', function ($query) {
+            $query->orderBy('price');
         });
     }
 
