@@ -18,11 +18,15 @@ Route::get('/categories', CategoriesPage::class)->name('categories');
 Route::get('/products', ProductsPage::class)->name('products');
 Route::get('/cart', CartPage::class)->name('cart');
 Route::get('/products/{slug}', ProductDetailPage::class);
-Route::get('/checkout', CheckoutPage::class);
-Route::get('/my-orders', MyOrdersPage::class);
-Route::get('/my-orders/{order}', MyOrderDetailPage::class);
 
-Route::get('/success', SuccessPage::class);
-Route::get('/cancel', CancelPage::class);
+
+Route::middleware('auth')->group(function () {
+    Route::get('/checkout', CheckoutPage::class);
+    Route::get('/my-orders', MyOrdersPage::class);
+    Route::get('/my-orders/{order}', MyOrderDetailPage::class);
+
+    Route::get('/success', SuccessPage::class);
+    Route::get('/cancel', CancelPage::class);
+});
 
 require __DIR__.'/auth.php';
